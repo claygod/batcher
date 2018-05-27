@@ -54,7 +54,6 @@ func (b *Batcher) worker() {
 
 		if len(batch) == 0 {
 			runtime.Gosched()
-			// time.Sleep(30 * time.Microsecond)
 			continue
 		}
 		for _, in := range batch {
