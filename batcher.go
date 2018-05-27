@@ -52,8 +52,8 @@ func (b *Batcher) worker(level int) {
 	}
 }
 
-func (b *Batcher) inputProcess(in *func(), wg *sync.WaitGroup) {
-	(*in)()
+func (b *Batcher) inputProcess(in *func() (int64, []byte), wg *sync.WaitGroup) {
+	b.wal.Log((*in)())
 	wg.Done()
 }
 
@@ -63,7 +63,7 @@ type Handler interface {
 }
 */
 type Queue interface {
-	GetBatch(int) []*func() //Input
+	GetBatch(int) []*func() (int64, []byte) //Input
 }
 
 type Wal interface {
