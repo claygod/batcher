@@ -8,7 +8,10 @@ import (
 	//"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 )
+
+const batchSize int64 = iota
 
 const (
 	stateRun int64 = iota
@@ -16,21 +19,35 @@ const (
 )
 
 type Batcher struct {
-	batchSize int
+	batchSize int64
 	barrier   int64
 	wal       Wal
 	queue     Queue
 }
 
-func NewBatcher(size int, wal Wal) *Batcher {
+func NewBatcher(wal Wal) *Batcher {
 	return &Batcher{
-		batchSize: size,
+		batchSize: batchSize,
 		barrier:   stateRun,
 		wal:       wal,
 	}
 }
 
-func (b *Batcher) worker(level int) {
+func (b *Batcher) Start() {
+	if atomic.CompareAndSwapInt64(&b.barrier, stateStop, stateRun) {
+		b.worker()
+	}
+}
+
+func (b *Batcher) Stop() {
+	atomic.StoreInt64(&b.barrier, stateStop)
+}
+
+func (b *Batcher) SetBatcSize(size int64) {
+	atomic.StoreInt64(&b.batchSize, stateStop)
+}
+
+func (b *Batcher) worker() {
 	var wg sync.WaitGroup
 	for {
 		batch := b.queue.GetBatch(b.batchSize)
@@ -63,7 +80,7 @@ type Handler interface {
 }
 */
 type Queue interface {
-	GetBatch(int) []*func() (int64, []byte) //Input
+	GetBatch(int64) []*func() (int64, []byte) //Input
 }
 
 type Wal interface {
