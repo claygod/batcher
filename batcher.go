@@ -5,7 +5,7 @@ package batcher
 // Copyright © 2018 Eduard Sesigin. All rights reserved. Contacts: <claygod@yandex.ru>
 
 import (
-	//"fmt"
+	// "fmt"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -23,31 +23,44 @@ type Batcher struct {
 	barrier   int64
 	wal       Wal
 	queue     Queue
+	wg        sync.WaitGroup
 }
 
-func NewBatcher(wal Wal) *Batcher {
+func NewBatcher(wal Wal, queue Queue) *Batcher {
 	return &Batcher{
 		batchSize: batchSize,
 		barrier:   stateRun,
 		wal:       wal,
+		queue:     queue,
+		wg:        sync.WaitGroup{},
 	}
 }
 
-func (b *Batcher) Start() {
+func (b *Batcher) Start() *Batcher {
 	if atomic.CompareAndSwapInt64(&b.barrier, stateStop, stateRun) {
-		b.worker()
+		go b.workerFull()
 	}
+	return b
 }
 
-func (b *Batcher) Stop() {
+func (b *Batcher) startCut() *Batcher {
+	if atomic.CompareAndSwapInt64(&b.barrier, stateStop, stateRun) {
+		go b.workerCut()
+	}
+	return b
+}
+
+func (b *Batcher) Stop() *Batcher {
 	atomic.StoreInt64(&b.barrier, stateStop)
+	return b
 }
 
-func (b *Batcher) SetBatcSize(size int64) {
+func (b *Batcher) SetBatchSize(size int64) *Batcher {
 	atomic.StoreInt64(&b.batchSize, stateStop)
+	return b
 }
 
-func (b *Batcher) worker() {
+func (b *Batcher) workerFull() {
 	var wg sync.WaitGroup
 	for {
 		batch := b.queue.GetBatch(b.batchSize)
@@ -68,9 +81,32 @@ func (b *Batcher) worker() {
 	}
 }
 
+func (b *Batcher) workerCut() {
+	for {
+		b.work()
+		if !b.wal.Save() || b.barrier == stateStop {
+			return
+		}
+	}
+}
+
+func (b *Batcher) work() {
+	//var wg sync.WaitGroup = b.wg
+	batch := b.queue.GetBatch(b.batchSize)
+	if len(batch) == 0 {
+		runtime.Gosched()
+		return
+	}
+	for _, in := range batch {
+		//wg.Add(1)
+		b.inputProcess(in, nil) // &wg
+	}
+	//wg.Wait()
+}
+
 func (b *Batcher) inputProcess(in *func() (int64, []byte), wg *sync.WaitGroup) {
 	b.wal.Log((*in)())
-	wg.Done()
+	//wg.Done()
 }
 
 /*
