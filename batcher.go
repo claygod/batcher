@@ -26,7 +26,7 @@ type Batcher struct {
 	wg        sync.WaitGroup
 }
 
-func NewBatcher(wal Wal, queue Queue) *Batcher {
+func New(wal Wal, queue Queue) *Batcher {
 	return &Batcher{
 		batchSize: batchSize,
 		barrier:   stateRun,
