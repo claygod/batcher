@@ -104,6 +104,13 @@ func (b *Batcher) work() {
 	//wg.Wait()
 }
 
+/*
+inputProcess
+
+Return:
+	- key (int64) - number executed tasks
+	- answer ([]byte) - gob-serialize
+*/
 func (b *Batcher) inputProcess(in *func() (int64, []byte), wg *sync.WaitGroup) {
 	b.wal.Log((*in)())
 	//wg.Done()
